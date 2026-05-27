@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tu agente IA tiene amnesia · Toy Harness</title>
+<meta name="description" content="Por qué existe un implementation harness para agentes IA, qué aporta más allá de usar Claude Code solo, y cómo funciona.">
+<style>
+  :root {
+    --bg: #fafaf7;
+    --bg-elevated: #ffffff;
+    --ink: #18181b;
+    --ink-soft: #52525b;
+    --ink-faint: #a1a1aa;
+    --line: #e4e4e7;
+    --accent: #1e293b;
+    --accent-soft: #f1f5f9;
+    --highlight: #fef3c7;
+    --highlight-line: #ca8a04;
+    --bad: #b91c1c;
+    --good: #15803d;
+    --code-bg: #f4f4f5;
+    --max-w: 720px;
+    --max-w-wide: 960px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.65;
+  }
+  .wrap { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+  .wrap-wide { max-width: var(--max-w-wide); margin: 0 auto; padding: 0 24px; }
+
+  /* HERO */
+  header.hero {
+    padding: 96px 24px 72px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #f5f5f0 0%, var(--bg) 100%);
+  }
+  header.hero .wrap { max-width: 760px; }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: 600;
+    margin: 0 0 18px;
+  }
+  h1 {
+    font-size: clamp(36px, 5vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    margin: 0 0 18px;
+    font-weight: 700;
+  }
+  .lede {
+    font-size: 20px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0 0 32px;
+    max-width: 620px;
+  }
+  .meta {
+    font-size: 14px;
+    color: var(--ink-faint);
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .meta a { color: var(--ink-soft); text-decoration: underline; text-underline-offset: 3px; }
+
+  /* SECTIONS */
+  section { padding: 64px 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: none; }
+  h2 {
+    font-size: clamp(26px, 3vw, 34px);
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+    margin: 0 0 24px;
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 20px;
+    margin: 36px 0 12px;
+    font-weight: 650;
+    letter-spacing: -0.005em;
+  }
+  h4 {
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    margin: 28px 0 10px;
+    font-weight: 600;
+  }
+  p { margin: 0 0 18px; }
+  p.intro { font-size: 19px; color: var(--ink-soft); }
+
+  ul, ol { padding-left: 22px; margin: 0 0 18px; }
+  li { margin-bottom: 8px; }
+  li::marker { color: var(--ink-faint); }
+
+  strong { font-weight: 650; color: var(--ink); }
+  em { font-style: italic; }
+  code {
+    font-family: "SF Mono", Menlo, Monaco, "Cascadia Code", monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--ink);
+  }
+  pre {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    font-size: 14px;
+    line-height: 1.55;
+    border: 1px solid var(--line);
+  }
+  pre code { background: none; padding: 0; }
+
+  blockquote {
+    border-left: 3px solid var(--ink-faint);
+    margin: 24px 0;
+    padding: 4px 0 4px 20px;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  a:hover { color: var(--highlight-line); }
+
+  /* HISTORIA narrative */
+  .story {
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin: 24px 0 32px;
+  }
+  .story-act {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--highlight-line);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .story p:last-child { margin-bottom: 0; }
+  .story-dialog {
+    font-family: "SF Mono", Menlo, Monaco, monospace;
+    background: var(--code-bg);
+    padding: 14px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin: 14px 0;
+  }
+
+  /* DIAGRAM container */
+  .diagram {
+    margin: 36px -24px;
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 36px 24px 28px;
+  }
+  .diagram-inner {
+    max-width: var(--max-w-wide);
+    margin: 0 auto;
+  }
+  .diagram svg { display: block; width: 100%; height: auto; }
+  .diagram-caption {
+    font-size: 14px;
+    color: var(--ink-soft);
+    text-align: center;
+    margin-top: 16px;
+    font-style: italic;
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .diagram-title {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+    text-align: center;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  /* COMPARISON TABLE */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 28px 0;
+  }
+  .compare-col {
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 22px 22px;
+  }
+  .compare-col h4 { margin-top: 0; }
+  .compare-col.solo h4 { color: var(--bad); }
+  .compare-col.harness h4 { color: var(--good); }
+  .compare-col ul { padding-left: 18px; margin: 0; }
+  .compare-col li { font-size: 15px; margin-bottom: 10px; line-height: 1.5; }
+
+  /* FILE CARDS */
+  .files {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin: 28px 0;
+  }
+  .file-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 22px;
+  }
+  .file-name {
+    font-family: "SF Mono", Menlo, Monaco, monospace;
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .file-role {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    margin-bottom: 12px;
+  }
+  .file-card p { font-size: 15px; margin: 0; color: var(--ink-soft); }
+
+  /* HIGHLIGHT PARA EL CLICK CENTRAL */
+  .thesis {
+    background: var(--highlight);
+    border-left: 4px solid var(--highlight-line);
+    padding: 24px 28px;
+    border-radius: 0 8px 8px 0;
+    margin: 28px 0;
+    font-size: 19px;
+    line-height: 1.55;
+  }
+  .thesis strong { color: var(--ink); }
+
+  /* CALLOUTS */
+  .callout {
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 24px 0;
+    font-size: 15px;
+  }
+  .callout-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  /* FOOTER */
+  footer {
+    padding: 56px 24px 80px;
+    border-top: 1px solid var(--line);
+    background: var(--accent-soft);
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 15px;
+  }
+  footer p { margin: 0 0 10px; }
+  footer a { color: var(--accent); }
+
+  /* MOBILE */
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    header.hero { padding: 64px 20px 48px; }
+    section { padding: 48px 0; }
+    .compare { grid-template-columns: 1fr; }
+    .diagram { margin: 28px -20px; }
+    .story { padding: 22px 22px; }
+    .thesis { padding: 20px; font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Toy Harness · Documento explicativo</p>
+    <h1>Tu agente IA tiene amnesia.</h1>
+    <p class="lede">
+      Por qué un harness de implementación importa, qué aporta más allá
+      de usar Claude Code (o Cursor, o Aider) tal cual viene, y cómo
+      funciona en la práctica.
+    </p>
+    <p class="meta">
+      <span>Lectura: ~12 minutos</span>
+      <span>·</span>
+      <a href="https://github.com/danilobrando/toy-harness">Repo en GitHub</a>
+    </p>
+  </div>
+</header>
+
+<!-- §1 EL PROBLEMA -->
+<section>
+  <div class="wrap">
+    <h2>El problema empieza en la sesión 4</h2>
+    <p class="intro">
+      Cuando trabajás con un agente IA en proyectos cortos (un script,
+      una refactorización de medio día) el chat history alcanza para
+      mantenerlo alineado. El problema aparece cuando los proyectos
+      duran semanas y se cortan en muchas sesiones. Por uno solo, el
+      problema no se ve. A escala de un proyecto largo, se vuelve
+      arquitectónico.
+    </p>
+
+    <div class="story">
+      <p class="story-act">Acto 1 — Sesión 2</p>
+      <p>
+        Día 4 de un proyecto de 8 semanas. Abrís Claude Code para
+        seguir donde quedaste. Le pedís implementar la persistencia
+        de tickets. Te responde:
+      </p>
+      <div class="story-dialog">
+        — Perfecto. ¿Qué ORM estábamos usando? ¿Prisma o Drizzle?
+      </div>
+      <p>
+        Hace dos días lo discutieron por una hora. Eligieron Drizzle.
+        Había una razón concreta: stack consistency con un servicio
+        contiguo. Esa decisión sobrevivió hasta que cerraste la
+        pestaña. Ahora vive solo en tu cabeza.
+      </p>
+    </div>
+
+    <div class="story">
+      <p class="story-act">Acto 2 — Sesión 8</p>
+      <p>
+        Día 14. Estás revisando lo que el agente escribió hoy y notás
+        tres <code>as any</code> esparcidos. Le preguntás por qué.
+        Responde algo que suena razonable. Le señalás que en sesión 3
+        habían acordado que <code>as any</code> requería un ADR
+        justificativo. Te dice:
+      </p>
+      <div class="story-dialog">
+        — Tenés razón. Voy a refactorearlo. ¿Recordás qué tipo
+        específico habíamos definido para el campo de payload?
+      </div>
+      <p>
+        Te das cuenta de que lo discutieron en sesión 3 pero no lo
+        documentaron en ningún lado. Lo único que queda es un commit
+        de hace 11 días con un mensaje vago.
+      </p>
+    </div>
+
+    <div class="story">
+      <p class="story-act">Acto 3 — Sesión 14</p>
+      <p>
+        Día 27. Abrís el agente para retomar después de un fin de
+        semana largo. Le preguntás en qué estaban. Te explica con
+        confianza algo que mezcla tres decisiones distintas que
+        nunca se tomaron juntas. Hace <code>git log</code>. Te asegura
+        que hay tests de integración. No los hay. Insiste. Te muestra
+        un archivo que tampoco existe.
+      </p>
+      <p>
+        En este punto, el chat history que arrastra el agente ya está
+        saturando el context window. Sus respuestas combinan
+        fragmentos de cosas que sí pasaron con cosas que el modelo
+        infiere que <em>deberían</em> haber pasado dado el contexto
+        que ve. Estás pagando un precio creciente por confiar en una
+        memoria que no tenés cómo verificar.
+      </p>
+    </div>
+
+    <div class="diagram">
+      <div class="diagram-inner">
+        <p class="diagram-title">Diagrama 1 · Tres memorias</p>
+        <svg viewBox="0 0 800 420" xmlns="http://www.w3.org/2000/svg" aria-labelledby="d1-title" role="img">
+          <title id="d1-title">Tres curvas de memoria a lo largo de un proyecto largo</title>
+
+          <!-- Ejes -->
+          <line x1="80" y1="340" x2="760" y2="340" stroke="#a1a1aa" stroke-width="1.5"/>
+          <line x1="80" y1="60" x2="80" y2="340" stroke="#a1a1aa" stroke-width="1.5"/>
+
+          <!-- Etiquetas ejes -->
+          <text x="420" y="380" text-anchor="middle" font-family="system-ui" font-size="13" fill="#52525b">tiempo (sesiones a lo largo del proyecto)</text>
+          <text x="35" y="200" text-anchor="middle" font-family="system-ui" font-size="13" fill="#52525b" transform="rotate(-90, 35, 200)">contexto disponible para el agente</text>
+
+          <!-- Marcadores sesiones -->
+          <g font-family="system-ui" font-size="11" fill="#a1a1aa" text-anchor="middle">
+            <text x="160" y="356">sesión 1</text>
+            <text x="260" y="356">sesión 4</text>
+            <text x="420" y="356">sesión 8</text>
+            <text x="580" y="356">sesión 12</text>
+            <text x="720" y="356">sesión 16</text>
+          </g>
+
+          <!-- Curva C: harness (líneal creciente, monotónica) -->
+          <path d="M 80,310 L 760,90" stroke="#15803d" stroke-width="3" fill="none"/>
+          <text x="690" y="105" font-family="system-ui" font-size="13" font-weight="600" fill="#15803d">Harness</text>
+          <text x="690" y="120" font-family="system-ui" font-size="11" fill="#15803d">crece, no decae</text>
+
+          <!-- Curva B: chat history (sube, satura, decae) -->
+          <path d="M 80,330 Q 280,200 420,140 Q 560,110 700,220" stroke="#ca8a04" stroke-width="3" fill="none" stroke-dasharray="0"/>
+          <text x="440" y="125" font-family="system-ui" font-size="13" font-weight="600" fill="#ca8a04">Chat history</text>
+          <text x="440" y="140" font-family="system-ui" font-size="11" fill="#ca8a04">satura el context window</text>
+
+          <!-- Curva A: memoria del modelo (sawtooth, cae a 0 entre sesiones) -->
+          <path d="M 80,330 L 100,160 L 100,330 L 180,180 L 180,330 L 260,200 L 260,330 L 340,220 L 340,330 L 420,240 L 420,330 L 500,260 L 500,330 L 580,280 L 580,330 L 660,300 L 660,330 L 720,310 L 720,330"
+                stroke="#b91c1c" stroke-width="2.5" fill="none"/>
+          <text x="180" y="155" font-family="system-ui" font-size="13" font-weight="600" fill="#b91c1c">Memoria del modelo</text>
+          <text x="180" y="170" font-family="system-ui" font-size="11" fill="#b91c1c">cae a 0 al cerrar sesión</text>
+
+          <!-- Zona crítica sombreada -->
+          <rect x="380" y="60" width="280" height="280" fill="#fef3c7" opacity="0.35"/>
+          <text x="520" y="80" text-anchor="middle" font-family="system-ui" font-size="12" font-style="italic" fill="#92400e">aquí mueren los proyectos largos sin harness</text>
+          <text x="520" y="98" text-anchor="middle" font-family="system-ui" font-size="11" fill="#92400e">(el chat history satura, el modelo no recuerda)</text>
+        </svg>
+        <p class="diagram-caption">
+          Las dos memorias por defecto del agente (memoria del modelo, chat history)
+          dejan de servir en algún punto. Un harness en archivos del repo crece
+          monotónicamente y no decae cuando la sesión cierra.
+        </p>
+      </div>
+    </div>
+
+    <p>
+      Lo que estás observando no es un bug específico de Claude Code,
+      ni de Cursor, ni de Aider. Es una propiedad del medio:
+      <strong>el modelo no tiene memoria persistente entre sesiones.</strong>
+      Lo que parece memoria es el chat history, que el cliente le
+      pasa explícitamente. Y ese chat history es finito, ruidoso y
+      eventualmente se vuelve contraproducente.
+    </p>
+  </div>
+</section>
+
+<!-- §2 POR QUÉ CLAUDE CODE SOLO NO ALCANZA -->
+<section>
+  <div class="wrap">
+    <h2>Por qué Claude Code solo no alcanza</h2>
+    <p>
+      Las herramientas tipo Claude Code, Cursor, Aider son
+      extraordinarias para lo que hacen bien. El problema es que su
+      diseño está optimizado para una sola sesión de trabajo, no para
+      proyectos multi-semana con múltiples sesiones discontinuas.
+    </p>
+
+    <div class="compare">
+      <div class="compare-col solo">
+        <h4>Lo que Claude Code resuelve solo</h4>
+        <ul>
+          <li>Generar código sintácticamente correcto a velocidad alta</li>
+          <li>Explorar un codebase y responder preguntas sobre él</li>
+          <li>Aplicar refactors mecánicos con bajo error</li>
+          <li>Mantener contexto <em>dentro</em> de una sesión activa</li>
+          <li>Ejecutar comandos, leer archivos, correr tests</li>
+        </ul>
+      </div>
+      <div class="compare-col harness">
+        <h4>Lo que un harness agrega</h4>
+        <ul>
+          <li>Continuidad de decisiones a través de muchas sesiones</li>
+          <li>Trazabilidad de por qué se eligió X sobre Y hace 3 semanas</li>
+          <li>Onboarding instantáneo de una sesión nueva (o un modelo nuevo)</li>
+          <li>Garantía de que los invariantes del sistema sigan protegidos</li>
+          <li>Un punto de cierre estructurado por sesión (handoff)</li>
+        </ul>
+      </div>
+    </div>
+
+    <p>
+      Las dos columnas son complementarias, no excluyentes. El
+      harness no reemplaza al agente; lo rodea con disciplina para
+      que su trabajo sobreviva al ciclo del context window.
+    </p>
+
+    <div class="callout">
+      <p class="callout-label">Una analogía</p>
+      <p style="margin: 0;">
+        Claude Code es como un colaborador brillante con amnesia
+        anterógrada. Puede hacer trabajo extraordinario en las
+        próximas 4 horas. Si querés que ese trabajo se sostenga 8
+        semanas, alguien tiene que ir escribiendo en su cuaderno
+        las cosas que él no va a poder recordar mañana. Ese cuaderno
+        es el harness.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- §3 EL CLICK CENTRAL -->
+<section>
+  <div class="wrap">
+    <h2>La idea central, en una frase</h2>
+
+    <div class="thesis">
+      <strong>El repo es la memoria a largo plazo del agente.</strong>
+      El agente es el proceso efímero. Cada sesión nueva empieza
+      leyendo un conjunto mínimo de archivos para reconstruir su
+      contexto crítico. Cada sesión que cierra escribe lo nuevo
+      que descubrió o decidió.
+    </div>
+
+    <p>
+      Esto no es disciplina de senior engineer. No es metodología.
+      No es "best practices". Es una respuesta arquitectónica
+      directa al bug de amnesia entre sesiones:
+      <strong>el contexto se va, el archivo se queda.</strong>
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-inner">
+        <p class="diagram-title">Diagrama 2 · Dos capas</p>
+        <svg viewBox="0 0 800 440" xmlns="http://www.w3.org/2000/svg" aria-labelledby="d2-title" role="img">
+          <title id="d2-title">Dos capas: sesiones efímeras arriba, archivos persistentes abajo</title>
+
+          <!-- Capa superior: sesiones efímeras -->
+          <text x="60" y="40" font-family="system-ui" font-size="12" font-weight="600" fill="#a1a1aa" text-transform="uppercase" letter-spacing="1">EFÍMERO</text>
+
+          <!-- Sesión 1 -->
+          <rect x="100" y="60" width="140" height="80" rx="6" fill="#fef3c7" stroke="#ca8a04" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <text x="170" y="92" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="600" fill="#92400e">Sesión 1</text>
+          <text x="170" y="110" text-anchor="middle" font-family="system-ui" font-size="11" fill="#92400e">contexto en RAM</text>
+          <text x="170" y="124" text-anchor="middle" font-family="system-ui" font-size="11" fill="#92400e">del modelo</text>
+
+          <!-- Sesión 2 -->
+          <rect x="330" y="60" width="140" height="80" rx="6" fill="#fef3c7" stroke="#ca8a04" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <text x="400" y="92" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="600" fill="#92400e">Sesión 2</text>
+          <text x="400" y="110" text-anchor="middle" font-family="system-ui" font-size="11" fill="#92400e">contexto en RAM</text>
+          <text x="400" y="124" text-anchor="middle" font-family="system-ui" font-size="11" fill="#92400e">del modelo</text>
+
+          <!-- Sesión 3 -->
+          <rect x="560" y="60" width="140" height="80" rx="6" fill="#fef3c7" stroke="#ca8a04" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <text x="630" y="92" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="600" fill="#92400e">Sesión N</text>
+          <text x="630" y="110" text-anchor="middle" font-family="system-ui" font-size="11" fill="#92400e">contexto en RAM</text>
+          <text x="630" y="124" text-anchor="middle" font-family="system-ui" font-size="11" fill="#92400e">del modelo</text>
+
+          <!-- Flechas: leer (arrow up) y escribir (arrow down) -->
+          <!-- Sesión 1 -->
+          <g stroke="#52525b" stroke-width="1.5" fill="none">
+            <path d="M 145,150 L 145,270" marker-end="url(#arrowdown)"/>
+            <path d="M 195,270 L 195,150" marker-end="url(#arrowup)"/>
+          </g>
+          <text x="125" y="215" font-family="system-ui" font-size="10" fill="#52525b">escribe</text>
+          <text x="200" y="215" font-family="system-ui" font-size="10" fill="#52525b">lee</text>
+
+          <!-- Sesión 2 -->
+          <g stroke="#52525b" stroke-width="1.5" fill="none">
+            <path d="M 375,150 L 375,270" marker-end="url(#arrowdown)"/>
+            <path d="M 425,270 L 425,150" marker-end="url(#arrowup)"/>
+          </g>
+          <text x="355" y="215" font-family="system-ui" font-size="10" fill="#52525b">escribe</text>
+          <text x="430" y="215" font-family="system-ui" font-size="10" fill="#52525b">lee</text>
+
+          <!-- Sesión 3 -->
+          <g stroke="#52525b" stroke-width="1.5" fill="none">
+            <path d="M 605,150 L 605,270" marker-end="url(#arrowdown)"/>
+            <path d="M 655,270 L 655,150" marker-end="url(#arrowup)"/>
+          </g>
+          <text x="585" y="215" font-family="system-ui" font-size="10" fill="#52525b">escribe</text>
+          <text x="660" y="215" font-family="system-ui" font-size="10" fill="#52525b">lee</text>
+
+          <!-- Marcador flecha -->
+          <defs>
+            <marker id="arrowdown" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0,0 L 5,9 L 10,0" fill="#52525b"/>
+            </marker>
+            <marker id="arrowup" viewBox="0 0 10 10" refX="5" refY="1" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0,10 L 5,1 L 10,10" fill="#52525b"/>
+            </marker>
+          </defs>
+
+          <!-- Capa inferior: archivos persistentes -->
+          <text x="60" y="295" font-family="system-ui" font-size="12" font-weight="600" fill="#15803d" text-transform="uppercase" letter-spacing="1">PERSISTENTE</text>
+
+          <rect x="60" y="300" width="680" height="120" rx="8" fill="#f0fdf4" stroke="#15803d" stroke-width="2"/>
+          <text x="400" y="328" text-anchor="middle" font-family="system-ui" font-size="15" font-weight="600" fill="#15803d">Archivos del repo (versionados en git)</text>
+
+          <!-- Sub-cajas: archivos -->
+          <g font-family="SF Mono, Menlo, monospace" font-size="12" fill="#15803d">
+            <rect x="80" y="350" width="130" height="50" rx="4" fill="white" stroke="#15803d" stroke-width="1"/>
+            <text x="145" y="370" text-anchor="middle">status/</text>
+            <text x="145" y="388" text-anchor="middle" font-family="system-ui" font-size="10">dónde estamos</text>
+
+            <rect x="225" y="350" width="130" height="50" rx="4" fill="white" stroke="#15803d" stroke-width="1"/>
+            <text x="290" y="370" text-anchor="middle">plan.md</text>
+            <text x="290" y="388" text-anchor="middle" font-family="system-ui" font-size="10">qué sigue</text>
+
+            <rect x="370" y="350" width="130" height="50" rx="4" fill="white" stroke="#15803d" stroke-width="1"/>
+            <text x="435" y="370" text-anchor="middle">adrs/</text>
+            <text x="435" y="388" text-anchor="middle" font-family="system-ui" font-size="10">qué decidimos</text>
+
+            <rect x="515" y="350" width="130" height="50" rx="4" fill="white" stroke="#15803d" stroke-width="1"/>
+            <text x="580" y="370" text-anchor="middle">handoffs/</text>
+            <text x="580" y="388" text-anchor="middle" font-family="system-ui" font-size="10">qué encontró</text>
+
+            <rect x="655" y="350" width="80" height="50" rx="4" fill="white" stroke="#15803d" stroke-width="1"/>
+            <text x="695" y="370" text-anchor="middle">norms.md</text>
+            <text x="695" y="388" text-anchor="middle" font-family="system-ui" font-size="10">reglas</text>
+          </g>
+        </svg>
+        <p class="diagram-caption">
+          Cada sesión es un proceso efímero. Los archivos del repo son el
+          disco duro compartido. La sesión nueva lee al despertar; la
+          sesión que cierra escribe lo nuevo.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- §4 CÓMO FUNCIONA EN LA PRÁCTICA -->
+<section>
+  <div class="wrap">
+    <h2>Cómo funciona en la práctica</h2>
+    <p>
+      Una sesión típica con el harness pasa por seis momentos. Los
+      primeros y los últimos son los que sostienen todo: la lectura
+      obligatoria al inicio y el handoff al cierre.
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-inner">
+        <p class="diagram-title">Diagrama 3 · El ciclo de una sesión</p>
+        <svg viewBox="0 0 800 440" xmlns="http://www.w3.org/2000/svg" aria-labelledby="d3-title" role="img">
+          <title id="d3-title">Ciclo de una sesión de trabajo con el harness</title>
+
+          <!-- Círculo central guía (invisible-ish) -->
+          <circle cx="400" cy="220" r="160" fill="none" stroke="#e4e4e7" stroke-width="1" stroke-dasharray="3 4"/>
+
+          <!-- Nodos en círculo -->
+          <!-- Nodo 1: Leer protocolo (12 o'clock) -->
+          <g>
+            <circle cx="400" cy="60" r="40" fill="#15803d" stroke="#15803d" stroke-width="2"/>
+            <text x="400" y="58" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="white">1</text>
+            <text x="400" y="73" text-anchor="middle" font-family="system-ui" font-size="10" fill="white">Leer protocolo</text>
+            <text x="400" y="30" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="600" fill="#15803d">PUERTA DE ENTRADA</text>
+          </g>
+
+          <!-- Nodo 2: Identificar trabajo (2 o'clock) -->
+          <g>
+            <circle cx="540" cy="140" r="36" fill="white" stroke="#52525b" stroke-width="2"/>
+            <text x="540" y="138" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="#18181b">2</text>
+            <text x="540" y="152" text-anchor="middle" font-family="system-ui" font-size="10" fill="#18181b">Identificar</text>
+            <text x="540" y="164" text-anchor="middle" font-family="system-ui" font-size="10" fill="#18181b">trabajo</text>
+          </g>
+
+          <!-- Nodo 3: Tests first (4 o'clock) -->
+          <g>
+            <circle cx="540" cy="300" r="36" fill="white" stroke="#52525b" stroke-width="2"/>
+            <text x="540" y="298" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="#18181b">3</text>
+            <text x="540" y="312" text-anchor="middle" font-family="system-ui" font-size="10" fill="#18181b">Tests</text>
+            <text x="540" y="324" text-anchor="middle" font-family="system-ui" font-size="10" fill="#18181b">primero</text>
+          </g>
+
+          <!-- Nodo 4: Implementar (6 o'clock - lo cambiamos para que esté en bottom) -->
+          <g>
+            <circle cx="400" cy="380" r="36" fill="white" stroke="#52525b" stroke-width="2"/>
+            <text x="400" y="378" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="#18181b">4</text>
+            <text x="400" y="392" text-anchor="middle" font-family="system-ui" font-size="10" fill="#18181b">Implementar</text>
+          </g>
+
+          <!-- Nodo 5: Self-review (8 o'clock) -->
+          <g>
+            <circle cx="260" cy="300" r="36" fill="white" stroke="#52525b" stroke-width="2"/>
+            <text x="260" y="298" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="#18181b">5</text>
+            <text x="260" y="312" text-anchor="middle" font-family="system-ui" font-size="10" fill="#18181b">Self-</text>
+            <text x="260" y="324" text-anchor="middle" font-family="system-ui" font-size="10" fill="#18181b">review</text>
+          </g>
+
+          <!-- Nodo 6: Handoff (10 o'clock) -->
+          <g>
+            <circle cx="260" cy="140" r="40" fill="#15803d" stroke="#15803d" stroke-width="2"/>
+            <text x="260" y="138" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="white">6</text>
+            <text x="260" y="152" text-anchor="middle" font-family="system-ui" font-size="10" fill="white">Handoff</text>
+            <text x="260" y="100" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="600" fill="#15803d">PUERTA DE SALIDA</text>
+          </g>
+
+          <!-- Flechas circulares (cada nodo al siguiente) -->
+          <g stroke="#a1a1aa" stroke-width="1.5" fill="none" marker-end="url(#arrowcyc)">
+            <path d="M 438,82 A 160,160 0 0,1 514,114"/>
+            <path d="M 555,178 A 160,160 0 0,1 555,262"/>
+            <path d="M 514,326 A 160,160 0 0,1 438,358"/>
+            <path d="M 362,358 A 160,160 0 0,1 286,326"/>
+            <path d="M 245,262 A 160,160 0 0,1 245,178"/>
+            <!-- Del handoff vuelve al inicio (siguiente sesión) - flecha disecontinua -->
+            <path d="M 286,114 A 160,160 0 0,1 362,82" stroke-dasharray="4 4"/>
+          </g>
+
+          <defs>
+            <marker id="arrowcyc" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0,0 L 8,5 L 0,10" fill="#a1a1aa"/>
+            </marker>
+          </defs>
+        </svg>
+        <p class="diagram-caption">
+          Las dos puertas (entrada en verde) son los pasos obligatorios.
+          Lo demás es trabajo común. La flecha punteada indica que el
+          handoff de una sesión es la lectura de la siguiente.
+        </p>
+      </div>
+    </div>
+
+    <h3>Lo que el agente lee al despertar</h3>
+    <p>
+      Cinco archivos, en orden estricto. Dos minutos de lectura. Sin
+      este paso, todo lo que sigue está desinformado:
+    </p>
+    <ol>
+      <li><code>session-protocol.md</code> — el repaso del propio protocolo</li>
+      <li><code>status/current-phase.md</code> — dónde quedó el proyecto</li>
+      <li><code>plan.md</code> — solo la sección de la fase actual</li>
+      <li><code>handoffs/</code> — el handoff más reciente, si existe</li>
+      <li><code>engineering-norms.md</code> — solo si va a tocar código</li>
+    </ol>
+
+    <h3>Lo que el agente escribe al cerrar</h3>
+    <p>
+      Depende del caso. Si mergeó un PR: marcar el item en el plan +
+      append al progress log. Si dejó un PR abierto: un handoff con
+      contexto crítico. Si tomó una decisión técnica: un ADR nuevo.
+    </p>
+    <p>
+      El handoff es la pieza más cara del sistema en tiempo (5-10
+      minutos al cierre) y la más valiosa. Es donde el contexto que
+      el agente acumuló en la sesión deja de ser efímero y se vuelve
+      parte del proyecto.
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-inner">
+        <p class="diagram-title">Diagrama 4 · Capas por velocidad de cambio</p>
+        <svg viewBox="0 0 800 440" xmlns="http://www.w3.org/2000/svg" aria-labelledby="d4-title" role="img">
+          <title id="d4-title">Pace layering: cuatro capas del harness ordenadas por cuán seguido cambian</title>
+
+          <!-- Círculos concéntricos -->
+          <circle cx="400" cy="220" r="180" fill="#fef3c7" opacity="0.4"/>
+          <circle cx="400" cy="220" r="140" fill="#dbeafe" opacity="0.5"/>
+          <circle cx="400" cy="220" r="95" fill="#dcfce7" opacity="0.6"/>
+          <circle cx="400" cy="220" r="50" fill="#e9d5ff" opacity="0.7"/>
+
+          <!-- Outlines -->
+          <circle cx="400" cy="220" r="180" fill="none" stroke="#ca8a04" stroke-width="1.5"/>
+          <circle cx="400" cy="220" r="140" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+          <circle cx="400" cy="220" r="95" fill="none" stroke="#15803d" stroke-width="1.5"/>
+          <circle cx="400" cy="220" r="50" fill="none" stroke="#7c3aed" stroke-width="1.5"/>
+
+          <!-- Labels centro -->
+          <text x="400" y="216" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#7c3aed">Principios</text>
+          <text x="400" y="232" text-anchor="middle" font-family="system-ui" font-size="10" fill="#7c3aed">casi nunca</text>
+
+          <!-- Label anillo verde -->
+          <text x="400" y="135" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#15803d">Normas</text>
+          <text x="400" y="148" text-anchor="middle" font-family="system-ui" font-size="10" fill="#15803d">mes a mes</text>
+
+          <!-- Label anillo azul -->
+          <text x="400" y="92" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#2563eb">Plan</text>
+          <text x="400" y="105" text-anchor="middle" font-family="system-ui" font-size="10" fill="#2563eb">semanal</text>
+
+          <!-- Label anillo exterior -->
+          <text x="400" y="50" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#92400e">Estado · Handoffs · Progress log</text>
+          <text x="400" y="63" text-anchor="middle" font-family="system-ui" font-size="10" fill="#92400e">cada sesión (append-only)</text>
+
+          <!-- Ejemplos en los anillos a los lados -->
+          <g font-family="SF Mono, Menlo, monospace" font-size="11" fill="#52525b">
+            <text x="170" y="220" text-anchor="end">working-agreement.md</text>
+            <text x="630" y="220" text-anchor="start">testing-strategy.md</text>
+
+            <text x="225" y="160" text-anchor="end">engineering-</text>
+            <text x="225" y="174" text-anchor="end">norms.md</text>
+            <text x="575" y="160" text-anchor="start">definition-of-</text>
+            <text x="575" y="174" text-anchor="start">done.md</text>
+
+            <text x="270" y="270" text-anchor="end">plan.md</text>
+            <text x="530" y="270" text-anchor="start">checklists/</text>
+
+            <text x="200" y="320" text-anchor="end">status/wbs.md</text>
+            <text x="600" y="320" text-anchor="start">handoffs/2025-...</text>
+          </g>
+        </svg>
+        <p class="diagram-caption">
+          Inspirado en el pace layering de Stewart Brand para edificios:
+          las cosas que cambian rápido (handoffs, status) viven separadas
+          de las que cambian lento (principios, normas). La estructura
+          física del repo refleja la velocidad de cambio.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- §5 ANATOMÍA -->
+<section>
+  <div class="wrap">
+    <h2>Anatomía: los archivos del harness</h2>
+    <p>
+      No son muchos. La idea es que cada uno tenga un trabajo claro
+      y poco overlap con los demás.
+    </p>
+
+    <div class="files">
+      <div class="file-card">
+        <p class="file-name">session-protocol.md</p>
+        <p class="file-role">Cómo se entra y se sale</p>
+        <p>
+          El primer archivo que el agente lee. Define los pasos
+          obligatorios al inicio y los criterios de cierre por caso
+          (PR mergeado, PR pendiente, sesión bloqueada).
+        </p>
+      </div>
+
+      <div class="file-card">
+        <p class="file-name">engineering-norms.md</p>
+        <p class="file-role">Reglas verificables</p>
+        <p>
+          Diez reglas (más o menos) que se pueden chequear por test,
+          lint o CI. Una norma que no se puede verificar
+          automáticamente no es norma — es opinión.
+        </p>
+      </div>
+
+      <div class="file-card">
+        <p class="file-name">working-agreement.md</p>
+        <p class="file-role">Cómo trabaja el agente IA</p>
+        <p>
+          El contrato de comportamiento del agente: TDD obligatorio,
+          PRs pequeños, qué hacer cuando hay duda, cuándo escalar al
+          humano.
+        </p>
+      </div>
+
+      <div class="file-card">
+        <p class="file-name">plan.md</p>
+        <p class="file-role">Plan vivo del proyecto</p>
+        <p>
+          El plan completo dividido en fases con checklists. Es el
+          único lugar donde se marca avance. Un script auto-genera
+          una visualización de barras desde este archivo.
+        </p>
+      </div>
+
+      <div class="file-card">
+        <p class="file-name">status/</p>
+        <p class="file-role">Estado vivo</p>
+        <p>
+          <code>current-phase.md</code>, <code>progress-log.md</code>
+          (append-only) y <code>blockers.md</code>. Lo que cambia
+          en cada sesión. Lo que el agente nuevo lee primero.
+        </p>
+      </div>
+
+      <div class="file-card">
+        <p class="file-name">handoffs/</p>
+        <p class="file-role">Cierre de sesión</p>
+        <p>
+          Un archivo por sesión que dejó trabajo abierto. Estado,
+          contexto crítico que no está en otros archivos, próximo
+          paso literal. La memoria operacional entre sesiones.
+        </p>
+      </div>
+
+      <div class="file-card">
+        <p class="file-name">adrs/</p>
+        <p class="file-role">Decisiones técnicas</p>
+        <p>
+          Un archivo por decisión no trivial. Contexto, opciones
+          consideradas, opción elegida, consecuencias. Inmutable
+          una vez aceptado.
+        </p>
+      </div>
+
+      <div class="file-card">
+        <p class="file-name">scripts/wbs.sh</p>
+        <p class="file-role">Visualización auto-generada</p>
+        <p>
+          Lee el plan.md y produce una barra de progreso por fase.
+          Pequeño (180 líneas), bash 3.2 compat, sin dependencias.
+          Se regenera al inicio y cierre de cada fase.
+        </p>
+      </div>
+    </div>
+
+    <p>
+      El detalle de cada uno vive en
+      <a href="https://github.com/danilobrando/toy-harness/tree/main/skeleton">skeleton/</a>
+      del repo, con un walkthrough anotado en
+      <a href="https://github.com/danilobrando/toy-harness/blob/main/tour/session-protocol-annotated.md">tour/</a>.
+    </p>
+  </div>
+</section>
+
+<!-- §6 CUÁNDO NO -->
+<section>
+  <div class="wrap">
+    <h2>Cuándo NO usar esto</h2>
+    <p>
+      El harness tiene overhead real. Para proyectos chicos, ese
+      overhead pesa más que el beneficio. Honestidad pedagógica:
+    </p>
+
+    <ul>
+      <li>
+        <strong>Scripts de una tarde.</strong> Si el proyecto termina
+        antes de cerrar la sesión, no hay sesiones futuras que
+        proteger.
+      </li>
+      <li>
+        <strong>Proyectos de menos de 2 semanas.</strong> El chat
+        history alcanza. El overhead de escribir handoffs no se
+        amortiza.
+      </li>
+      <li>
+        <strong>Exploración pura.</strong> Cuando no sabés qué estás
+        construyendo todavía, el plan.md y los ADRs son fricción
+        innecesaria.
+      </li>
+      <li>
+        <strong>Equipos donde una sola persona tiene todo el contexto y
+        nunca se va.</strong> Esto casi nunca es cierto en la práctica,
+        pero si lo es: el harness es overkill.
+      </li>
+      <li>
+        <strong>Si no estás dispuesto a escribir un handoff cada vez que
+        cierres una sesión con trabajo abierto.</strong> El sistema solo
+        funciona si los rituales se respetan. Sin esa disciplina,
+        terminás con un esqueleto de archivos vacíos.
+      </li>
+    </ul>
+
+    <div class="callout">
+      <p class="callout-label">La pregunta clarificadora</p>
+      <p style="margin: 0;">
+        ¿La próxima sesión de este proyecto la vas a abrir vos mañana
+        mismo, sin notas? Si sí, no necesitás esto. Si la próxima
+        sesión es en 5 días, o la abre otra persona, o el modelo va
+        a haber cambiado, probablemente sí.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- §7 CÓMO EMPEZAR -->
+<section>
+  <div class="wrap">
+    <h2>Cómo empezar hoy, sin clonar nada</h2>
+    <p>
+      El harness completo es 18 archivos. No los necesitás todos
+      desde el día uno. Si te interesa probarlo en un proyecto que
+      tengas vivo, empezá con tres archivos:
+    </p>
+
+    <pre><code>your-project/
+├── session-protocol.md
+├── engineering-norms.md
+└── handoffs/</code></pre>
+
+    <p>
+      <code>session-protocol.md</code> y <code>engineering-norms.md</code>
+      empezan vacíos o con dos líneas. Los llenás a medida que el
+      proyecto los necesita. <code>handoffs/</code> es una carpeta
+      vacía hasta que cierres tu primera sesión con trabajo
+      pendiente.
+    </p>
+
+    <p>
+      La regla de aplicación: <strong>el harness emerge cuando lo
+      necesités, no antes</strong>. Si lo creás todo al inicio sin un
+      proyecto real empujando cada pieza, vas a terminar con
+      scaffolding decorativo.
+    </p>
+
+    <h3>Antes de copiar nada de este repo, contestate 7 preguntas</h3>
+    <p>
+      El repo tiene un archivo
+      <a href="https://github.com/danilobrando/toy-harness/blob/main/ADAPT.md">ADAPT.md</a>
+      con preguntas diseñadas para evitar el copy-paste sin entender.
+      Tres ejemplos:
+    </p>
+    <ol>
+      <li>
+        ¿Cuál es la decisión técnica más cara que tomaste hace 3
+        sesiones, y la podés recordar sin abrir el chat history?
+      </li>
+      <li>
+        ¿Cuáles son los 3-5 invariantes inviolables de tu sistema?
+        ¿Los podés enumerar ahora?
+      </li>
+      <li>
+        Si te enfermás una semana, ¿otra persona puede retomar el
+        proyecto leyendo solo el repo?
+      </li>
+    </ol>
+
+    <p>
+      Si las tres respuestas son "más o menos" o "depende", el
+      harness te puede aportar más de lo que pesa.
+    </p>
+
+    <h3>La pregunta de cierre</h3>
+    <div class="thesis">
+      Si un Claude nuevo abriera tu repo mañana sin contexto previo,
+      <strong>¿cuánto tardaría en estar productivo?</strong>
+    </div>
+    <p>
+      Si la respuesta es "depende, primero tendría que explicarle yo",
+      el proyecto vive en tu cabeza. El harness es la respuesta a
+      esa pregunta.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <p>
+    <strong>Toy Harness</strong> — patrón pedagógico para trabajar
+    con agentes IA en proyectos largos.
+  </p>
+  <p>
+    <a href="https://github.com/danilobrando/toy-harness">Código en GitHub</a>
+    <span style="margin: 0 8px;">·</span>
+    MIT License
+  </p>
+  <p style="margin-top: 20px; color: var(--ink-faint); font-size: 13px;">
+    Anonimizado a partir de un harness propio en producción.
+    Versión sintética usa un proyecto ficticio (Triage Bot) como ejemplo.
+  </p>
+</footer>
+
+</body>
+</html>

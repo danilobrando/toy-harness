@@ -13,8 +13,11 @@ de operador, de día.
 
 ## Cómo navegar este repo
 
-- **[docs/why.md](docs/why.md)** — leélo primero. 5 minutos. Explica el
-  problema que este patrón resuelve.
+- **[docs/index.html](docs/index.html)** — explicación visual con
+  diagramas (HTML standalone). Si tenés GitHub Pages activado,
+  abrí `https://danilobrando.github.io/toy-harness/`.
+- **[docs/why.md](docs/why.md)** — leélo primero si preferís texto.
+  5 minutos. Explica el problema que este patrón resuelve.
 - **[skeleton/](skeleton/)** — los 3 archivos mínimos que cualquier proyecto
   puede crear hoy. NO es un template para copiar tal cual; es un punto de
   partida para escribir el tuyo.
