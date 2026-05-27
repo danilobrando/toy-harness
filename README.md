@@ -3,6 +3,8 @@
 > Un patrón de archivos versionados para trabajar con agentes IA en proyectos
 > largos sin perder el contexto entre sesiones.
 
+**Página visual con diagramas:** <https://danilobrando.github.io/toy-harness/>
+
 ## El thesis en tres líneas
 
 El agente IA no tiene memoria entre sesiones. Vos sí. Si la memoria crítica del
@@ -13,11 +15,11 @@ de operador, de día.
 
 ## Cómo navegar este repo
 
-- **[docs/index.html](docs/index.html)** — explicación visual con
-  diagramas (HTML standalone). Si tenés GitHub Pages activado,
-  abrí `https://danilobrando.github.io/toy-harness/`.
-- **[docs/why.md](docs/why.md)** — leélo primero si preferís texto.
-  5 minutos. Explica el problema que este patrón resuelve.
+- **[Página visual con diagramas](https://danilobrando.github.io/toy-harness/)** —
+  recorrido didáctico del harness (problema → idea → cómo funciona) con 4
+  diagramas SVG. También disponible local en
+  [`docs/index.html`](docs/index.html).
+- **[docs/why.md](docs/why.md)** — versión texto del por qué. 5 minutos.
 - **[skeleton/](skeleton/)** — los 3 archivos mínimos que cualquier proyecto
   puede crear hoy. NO es un template para copiar tal cual; es un punto de
   partida para escribir el tuyo.
